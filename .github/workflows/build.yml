@@ -20,6 +20,16 @@ jobs:
           remove-haskell: 'true'
           remove-codeql: 'true'
           remove-docker-images: 'true'
+      # 新增：移动 Docker 数据目录到大分区
+      - name: Move Docker Data Root
+        run: |
+          sudo systemctl stop docker.service
+          sudo systemctl stop docker.socket
+          # 创建一个新的目录在大分区上
+          sudo mkdir -p /home/runner/work/palworld-docker/palworld-docker/docker-data
+          # 修改配置文件指向新路径
+          echo '{"data-root": "/home/runner/work/palworld-docker/palworld-docker/docker-data"}' | sudo tee /etc/docker/daemon.json
+          sudo systemctl start docker.service     
 
       - name: Check Free Space
         run: df -h
