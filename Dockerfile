@@ -3,7 +3,12 @@ FROM cm2network/steamcmd:steam
 ARG DEBIAN_FRONTEND=noninteractive
 WORKDIR /opt/palworld
 
-RUN /home/steam/steamcmd/steamcmd.sh +force_install_dir "/opt/palworld" +login anonymous +app_update 2394010 validate +quit
+RUN for i in 1 2 3 4 5 6; do \
+        /home/steam/steamcmd/steamcmd.sh +force_install_dir "/opt/palworld" +login anonymous +app_update 2394010 validate +quit && break || \
+        if [ "$i" = "6" ]; then exit 1; fi; \
+        if [ "$i" = "5" ]; then delay=1800; else delay=$((i * 20)); fi; \
+        echo "SteamCMD download failed, retrying in ${delay} seconds... ($i/6)" && sleep ${delay}; \
+    done
 
 ENV GAME_PORT=8211
 ENV MAX_PLAYERS=32

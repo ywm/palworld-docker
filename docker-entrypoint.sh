@@ -1,7 +1,23 @@
 #!/bin/bash
 set -e
 if [[ -n $FORCE_UPDATE ]] && [[ $FORCE_UPDATE == "true" ]]; then
-    /home/steam/steamcmd/steamcmd.sh +force_install_dir "/opt/palworld" +login anonymous +app_update 2394010 validate +quit
+    echo "Force updating Palworld via SteamCMD..."
+    for i in 1 2 3 4 5 6; do
+        if /home/steam/steamcmd/steamcmd.sh +force_install_dir "/opt/palworld" +login anonymous +app_update 2394010 validate +quit; then
+            break
+        else
+            if [ "$i" = "6" ]; then
+                exit 1
+            fi
+            if [ "$i" = "5" ]; then
+                delay=1800
+            else
+                delay=$((i * 20))
+            fi
+            echo "SteamCMD update failed, retrying in ${delay} seconds... ($i/6)"
+            sleep ${delay}
+        fi
+    done
 fi
 
 if [[ ! -f /opt/palworld/Pal/Saved/Config/LinuxServer/PalWorldSettings.ini ]]; then

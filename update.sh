@@ -1,5 +1,5 @@
 #!/bin/bash
-version=$(curl --silent "https://api.steamcmd.net/v1/info/2394010" | jq '.data."2394010".depots.branches.public.buildid' -r)
+version=$(curl --silent --connect-timeout 10 --max-time 30 --retry 5 --retry-delay 5 --retry-connrefused "https://api.steamcmd.net/v1/info/2394010" | jq '.data."2394010".depots.branches.public.buildid' -r)
 currentversion=$(cat currentversion)
 echo "currentversion:$currentversion version:$version"
 if [[ -z "${version}" ]]; then
