@@ -1,5 +1,47 @@
 #!/bin/bash
 set -e
+
+settings_file=/opt/palworld/Pal/Saved/Config/LinuxServer/PalWorldSettings.ini
+
+escape_sed_replacement() {
+    printf '%s' "$1" | sed 's/[\\&|]/\\&/g'
+}
+
+escape_ini_string() {
+    printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
+}
+
+set_quoted_setting() {
+    local key=$1
+    local value
+    value=$(escape_ini_string "$2")
+    value=$(escape_sed_replacement "$value")
+    sed -i -E "s|([,(])${key}=\"[^\"]*\"|\\1${key}=\"${value}\"|" "$settings_file"
+}
+
+set_scalar_setting() {
+    local key=$1
+    local value
+    value=$(escape_sed_replacement "$2")
+    sed -i -E "s|([,(])${key}=[^,)]*|\\1${key}=${value}|" "$settings_file"
+}
+
+set_bool_setting() {
+    local key=$1
+    case $2 in
+        true) set_scalar_setting "$key" True ;;
+        false) set_scalar_setting "$key" False ;;
+        *) printf 'Invalid boolean value for %s: %s\n' "$key" "$2" >&2; exit 1 ;;
+    esac
+}
+
+set_crossplay_platforms() {
+    local value
+    value=$(escape_sed_replacement "$1")
+    sed -i -E "s|([,(])CrossplayPlatforms=\([^)]*\)|\\1CrossplayPlatforms=(${value})|" "$settings_file"
+}
+
+main() {
 if [[ -n $FORCE_UPDATE ]] && [[ $FORCE_UPDATE == "true" ]]; then
     echo "Force updating Palworld via SteamCMD..."
     for i in 1 2 3 4 5 6; do
@@ -20,52 +62,96 @@ if [[ -n $FORCE_UPDATE ]] && [[ $FORCE_UPDATE == "true" ]]; then
     done
 fi
 
-if [[ ! -f /opt/palworld/Pal/Saved/Config/LinuxServer/PalWorldSettings.ini ]]; then
+if [[ ! -f $settings_file ]]; then
     mkdir -p /opt/palworld/Pal/Saved/Config/LinuxServer/
-    cat /opt/palworld/DefaultPalWorldSettings.ini >/opt/palworld/Pal/Saved/Config/LinuxServer/PalWorldSettings.ini
+    cp /opt/palworld/DefaultPalWorldSettings.ini "$settings_file"
     if [[ -n $SERVER_NAME ]]; then
-        sed -i "s^ServerName=\"Default Palworld Server\"^ServerName=\"$SERVER_NAME\"^g" /opt/palworld/Pal/Saved/Config/LinuxServer/PalWorldSettings.ini
+        set_quoted_setting ServerName "$SERVER_NAME"
     fi
     if [[ -n $SERVER_DESC ]]; then
-        sed -i "s^ServerDescription=\"\"^ServerDescription=\"$SERVER_DESC\"^g" /opt/palworld/Pal/Saved/Config/LinuxServer/PalWorldSettings.ini
-    fi
-    if [[ -n $ADMIN_PASSWORD ]]; then
-        sed -i "s^AdminPassword=\"\"^AdminPassword=\"$ADMIN_PASSWORD\"^g" /opt/palworld/Pal/Saved/Config/LinuxServer/PalWorldSettings.ini
+        set_quoted_setting ServerDescription "$SERVER_DESC"
     fi
     if [[ -n $SERVER_PASSWORD ]]; then
-        sed -i "s^ServerPassword=\"\"^ServerPassword=\"$SERVER_PASSWORD\"^g" /opt/palworld/Pal/Saved/Config/LinuxServer/PalWorldSettings.ini
+        set_quoted_setting ServerPassword "$SERVER_PASSWORD"
     fi
-    if [[ -n $RCON_ENABLED ]] && [[ $RCON_ENABLED == "true" ]]; then
-        sed -i "s^RCONEnabled=False^RCONEnabled=True^g" /opt/palworld/Pal/Saved/Config/LinuxServer/PalWorldSettings.ini
+    if [[ -n $ADMIN_PASSWORD ]]; then
+        set_quoted_setting AdminPassword "$ADMIN_PASSWORD"
+    fi
+    if [[ -n $RCON_ENABLED ]]; then
+        set_bool_setting RCONEnabled "$RCON_ENABLED"
     fi
     if [[ -n $RCON_PORT ]]; then
-        sed -i "s^RCONPort=25575^RCONPort=$RCON_PORT^g" /opt/palworld/Pal/Saved/Config/LinuxServer/PalWorldSettings.ini
+        set_scalar_setting RCONPort "$RCON_PORT"
     fi
-    if [[ -n $RESTAPI_ENABLED ]] && [[ $RESTAPI_ENABLED == "true" ]]; then
-        sed -i "s^RESTAPIEnabled=False^RESTAPIEnabled=True^g" /opt/palworld/Pal/Saved/Config/LinuxServer/PalWorldSettings.ini
+    if [[ -n $RESTAPI_ENABLED ]]; then
+        set_bool_setting RESTAPIEnabled "$RESTAPI_ENABLED"
     fi
     if [[ -n $RESTAPI_PORT ]]; then
-        sed -i "s^RESTAPIPort=8212^RESTAPIPort=$RESTAPI_PORT^g" /opt/palworld/Pal/Saved/Config/LinuxServer/PalWorldSettings.ini
+        set_scalar_setting RESTAPIPort "$RESTAPI_PORT"
+    fi
+    if [[ -n $CROSSPLAY_PLATFORMS ]]; then
+        set_crossplay_platforms "$CROSSPLAY_PLATFORMS"
+    fi
+    if [[ -n $BASE_CAMP_MAX_NUM ]]; then
+        set_scalar_setting BaseCampMaxNum "$BASE_CAMP_MAX_NUM"
+    fi
+    if [[ -n $BASE_CAMP_MAX_NUM_IN_GUILD ]]; then
+        set_scalar_setting BaseCampMaxNumInGuild "$BASE_CAMP_MAX_NUM_IN_GUILD"
+    fi
+    if [[ -n $BASE_CAMP_WORKER_MAX_NUM ]]; then
+        set_scalar_setting BaseCampWorkerMaxNum "$BASE_CAMP_WORKER_MAX_NUM"
+    fi
+    if [[ -n $ITEM_CONTAINER_FORCE_MARK_DIRTY_INTERVAL ]]; then
+        set_scalar_setting ItemContainerForceMarkDirtyInterval "$ITEM_CONTAINER_FORCE_MARK_DIRTY_INTERVAL"
+    fi
+    if [[ -n $MAX_BUILDING_LIMIT_NUM ]]; then
+        set_scalar_setting MaxBuildingLimitNum "$MAX_BUILDING_LIMIT_NUM"
+    fi
+    if [[ -n $PHYSICS_ACTIVE_DROP_ITEM_MAX_NUM ]]; then
+        set_scalar_setting PhysicsActiveDropItemMaxNum "$PHYSICS_ACTIVE_DROP_ITEM_MAX_NUM"
+    fi
+    if [[ -n $SERVER_REPLICATE_PAWN_CULL_DISTANCE ]]; then
+        set_scalar_setting ServerReplicatePawnCullDistance "$SERVER_REPLICATE_PAWN_CULL_DISTANCE"
+    fi
+    if [[ -n $ENABLE_BACKUP_SAVE_DATA ]]; then
+        set_bool_setting bIsUseBackupSaveData "$ENABLE_BACKUP_SAVE_DATA"
     fi
 fi
 
-extra_opts=""
+server_opts=(
+    "-port=$GAME_PORT"
+    "-players=$MAX_PLAYERS"
+)
 if [[ -n $ENABLE_MULTITHREAD ]] && [[ $ENABLE_MULTITHREAD == "true" ]]; then
-    extra_opts="-useperfthreads -NoAsyncLoadingThread -UseMultithreadForDS"
+    server_opts+=(
+        -useperfthreads
+        -NoAsyncLoadingThread
+        -UseMultithreadForDS
+    )
+    if [[ -n $WORKER_THREADS ]]; then
+        server_opts+=("-NumberOfWorkerThreadsServer=$WORKER_THREADS")
+    fi
 fi
-community_opts=""
+if [[ -n $LOG_FORMAT ]]; then
+    server_opts+=("-logformat=$LOG_FORMAT")
+fi
 if [[ -n $IS_PUBLIC ]] && [[ $IS_PUBLIC == "true" ]]; then
-    community_opts="EpicApp=PalServer -publiclobby"
-fi
-if [[ -n $PUBLIC_IP ]]; then
-    community_opts="$community_opts -publicip=$PUBLIC_IP"
-fi
-if [[ -n $PUBLIC_PORT ]]; then
-    community_opts="$community_opts -publicport=$PUBLIC_PORT"
+    server_opts+=(-publiclobby)
+    if [[ -n $PUBLIC_IP ]]; then
+        server_opts+=("-publicip=$PUBLIC_IP")
+    fi
+    if [[ -n $PUBLIC_PORT ]]; then
+        server_opts+=("-publicport=$PUBLIC_PORT")
+    fi
 fi
 
 if [ $# -eq 0 ]; then
-    /opt/palworld/PalServer.sh port="$GAME_PORT" players="$MAX_PLAYERS" "$extra_opts" "$community_opts"
+    exec /opt/palworld/PalServer.sh "${server_opts[@]}"
 else
     exec "$@"
+fi
+}
+
+if [[ ${BASH_SOURCE[0]} == "$0" ]]; then
+    main "$@"
 fi
